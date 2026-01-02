@@ -3,6 +3,7 @@ module github.com/sk8work/go_final_project
 go 1.24.9
 
 require (
+	github.com/go-chi/chi/v5 v5.2.3
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/stretchr/testify v1.11.1
 	modernc.org/sqlite v1.42.0
