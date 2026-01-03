@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"github.com/sk8work/go_final_project/app/db"
 	"log"
 	"net/http"
 	"os"
@@ -16,6 +17,19 @@ import (
 func main() {
 	// Загрузка конфигурации
 	cfg := config.Load()
+
+	// Получаем абсолютный путь к файлу БД
+	dbPath, err := cfg.GetDBPath()
+	if err != nil {
+		log.Fatalf("Failed to get database path: %v", err)
+	}
+
+	// Инициализация базы данных
+	log.Printf("Initializing database at: %s", dbPath)
+	if err := db.Init(dbPath); err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
+	defer db.Close()
 
 	// Создание сервера
 	srv := server.New(cfg)
@@ -32,6 +46,7 @@ func main() {
 	}()
 
 	log.Printf("Server started on port %d", cfg.Port)
+	log.Printf("Database file: %s", dbPath)
 
 	// Ожидание сигнала завершения
 	<-done
