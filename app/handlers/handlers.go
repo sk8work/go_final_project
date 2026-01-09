@@ -20,6 +20,9 @@ func NewHandler(webDir string) *Handler {
 func (h *Handler) RegisterRoutes(r chi.Router) {
 	// Статические файлы
 	fileServer(r, "/", http.Dir(h.webDir))
+
+	// API маршруты обрабатываются через стандартный http.HandleFunc
+	// Поэтому не регистрируем их здесь через chi
 }
 
 // fileServer настраивает обработку статических файлов

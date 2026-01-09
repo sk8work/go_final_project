@@ -9,8 +9,6 @@ import (
 	"time"
 )
 
-const dateFormat = "20060102"
-
 // NextDate вычисляет следующую дату выполнения задачи
 func NextDate(now time.Time, dstart string, repeat string) (string, error) {
 	// Проверка на пустое правило
@@ -19,7 +17,7 @@ func NextDate(now time.Time, dstart string, repeat string) (string, error) {
 	}
 
 	// Парсим начальную дату
-	startDate, err := time.Parse(dateFormat, dstart)
+	startDate, err := time.Parse("20060102", dstart)
 	if err != nil {
 		return "", fmt.Errorf("неверный формат даты: %w", err)
 	}
@@ -68,16 +66,16 @@ func calculateNextDateByDays(now, startDate time.Time, interval int) string {
 	date := startDate
 
 	// Если начальная дата уже в будущем, возвращаем её
-	if afterNow(date, now) {
-		return date.Format(dateFormat)
+	if AfterNow(date, now) {
+		return date.Format("20060102")
 	}
 
 	// Вычисляем следующую дату, добавляя интервалы
-	for !afterNow(date, now) {
+	for !AfterNow(date, now) {
 		date = date.AddDate(0, 0, interval)
 	}
 
-	return date.Format(dateFormat)
+	return date.Format("20060102")
 }
 
 // calculateNextDateByYears вычисляет следующую дату для правила y
@@ -85,8 +83,8 @@ func calculateNextDateByYears(now, startDate time.Time) string {
 	date := startDate
 
 	// Если начальная дата уже в будущем, возвращаем её
-	if afterNow(date, now) {
-		return date.Format(dateFormat)
+	if AfterNow(date, now) {
+		return date.Format("20060102")
 	}
 
 	// Начинаем с начальной даты и добавляем годы, пока не превысим now
@@ -107,18 +105,18 @@ func calculateNextDateByYears(now, startDate time.Time) string {
 		date = newDate
 
 		// Если дата стала больше now, выходим
-		if afterNow(date, now) {
+		if AfterNow(date, now) {
 			break
 		}
 
 		yearsToAdd++
 	}
 
-	return date.Format(dateFormat)
+	return date.Format("20060102")
 }
 
-// afterNow проверяет, что дата находится после now (без учёта времени)
-func afterNow(date, now time.Time) bool {
+// AfterNow проверяет, что дата находится после now (без учёта времени)
+func AfterNow(date, now time.Time) bool {
 	// Приводим к началу дня для сравнения только дат
 	dateDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
 	nowDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
@@ -161,7 +159,7 @@ func NextDateHandler(w http.ResponseWriter, r *http.Request) {
 		now = time.Now()
 	} else {
 		var err error
-		now, err = time.Parse(dateFormat, nowStr)
+		now, err = time.Parse("20060102", nowStr)
 		if err != nil {
 			http.Error(w, `{"error": "неверный формат параметра now"}`, http.StatusBadRequest)
 			return

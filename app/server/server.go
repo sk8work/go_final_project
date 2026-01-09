@@ -27,16 +27,16 @@ func New(cfg *config.Config) *Server {
 }
 
 func (s *Server) Run() error {
-	// Регистрируем API обработчики
-	api.Init()
-
 	r := chi.NewRouter()
 
 	// Basic middleware
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	// Регистрация маршрутов
+	// Регистрируем API маршруты
+	s.registerAPIRoutes(r)
+
+	// Регистрация статических файлов
 	handler := handlers.NewHandler(s.cfg.WebDir)
 	handler.RegisterRoutes(r)
 
@@ -49,9 +49,20 @@ func (s *Server) Run() error {
 	}
 
 	log.Printf("Starting server on port %d", s.cfg.Port)
-	log.Printf("API endpoint available at: /api/nextdate")
+	log.Printf("API endpoints available:")
+	log.Printf("  POST /api/task - добавление задачи")
+	log.Printf("  GET  /api/nextdate - вычисление следующей даты")
 
 	return s.httpServer.ListenAndServe()
+}
+
+// registerAPIRoutes регистрирует все API маршруты
+func (s *Server) registerAPIRoutes(r chi.Router) {
+	// API маршруты
+	r.Route("/api", func(r chi.Router) {
+		r.Get("/nextdate", api.NextDateHandler)
+		r.Post("/task", api.TaskHandler)
+	})
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {
