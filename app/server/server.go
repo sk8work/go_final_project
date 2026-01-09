@@ -3,12 +3,14 @@ package server
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"github.com/sk8work/go_final_project/app/api"
 	"github.com/sk8work/go_final_project/app/config"
 	"github.com/sk8work/go_final_project/app/handlers"
 )
@@ -25,13 +27,16 @@ func New(cfg *config.Config) *Server {
 }
 
 func (s *Server) Run() error {
+	// Регистрируем API обработчики
+	api.Init()
+
 	r := chi.NewRouter()
 
 	// Basic middleware
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	// Регистрация маршрутов - ТОЛЬКО статические файлы для Шага 1-2
+	// Регистрация маршрутов
 	handler := handlers.NewHandler(s.cfg.WebDir)
 	handler.RegisterRoutes(r)
 
@@ -42,6 +47,9 @@ func (s *Server) Run() error {
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
+
+	log.Printf("Starting server on port %d", s.cfg.Port)
+	log.Printf("API endpoint available at: /api/nextdate")
 
 	return s.httpServer.ListenAndServe()
 }
