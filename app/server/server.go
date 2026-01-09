@@ -52,6 +52,7 @@ func (s *Server) Run() error {
 	log.Printf("API endpoints available:")
 	log.Printf("  POST /api/task - добавление задачи")
 	log.Printf("  GET  /api/nextdate - вычисление следующей даты")
+	log.Printf("  GET  /api/tasks - получение списка задач")
 
 	return s.httpServer.ListenAndServe()
 }
@@ -61,7 +62,8 @@ func (s *Server) registerAPIRoutes(r chi.Router) {
 	// API маршруты
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/nextdate", api.NextDateHandler)
-		r.Post("/task", api.TaskHandler)
+		r.Post("/task", api.AddTaskHandler)
+		r.Get("/tasks", api.TasksHandler)
 	})
 }
 

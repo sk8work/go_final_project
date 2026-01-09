@@ -17,26 +17,8 @@ type TaskRequest struct {
 	Repeat  string `json:"repeat"`
 }
 
-// TaskResponse представляет ответ с ID задачи
-type TaskResponse struct {
-	ID    string `json:"id,omitempty"`
-	Error string `json:"error,omitempty"`
-}
-
-// writeJSON записывает JSON ответ
-func writeJSON(w http.ResponseWriter, data interface{}) {
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	json.NewEncoder(w).Encode(data)
-}
-
 // addTaskHandler обрабатывает POST запрос на добавление задачи
-func addTaskHandler(w http.ResponseWriter, r *http.Request) {
-	// Проверяем метод запроса
-	if r.Method != http.MethodPost {
-		http.Error(w, `{"error": "метод не поддерживается"}`, http.StatusMethodNotAllowed)
-		return
-	}
-
+func AddTaskHandler(w http.ResponseWriter, r *http.Request) {
 	// Парсим JSON запрос
 	var req TaskRequest
 	decoder := json.NewDecoder(r.Body)

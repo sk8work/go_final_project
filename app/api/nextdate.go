@@ -133,7 +133,7 @@ func isLeapYear(year int) bool {
 func NextDateHandler(w http.ResponseWriter, r *http.Request) {
 	// Поддерживаем только GET запросы
 	if r.Method != http.MethodGet {
-		http.Error(w, `{"error": "метод не поддерживается"}`, http.StatusMethodNotAllowed)
+		writeJSONError(w, "метод не поддерживается", http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -144,12 +144,12 @@ func NextDateHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Валидация параметров
 	if dateStr == "" {
-		http.Error(w, `{"error": "параметр date обязателен"}`, http.StatusBadRequest)
+		writeJSONError(w, "параметр date обязателен", http.StatusBadRequest)
 		return
 	}
 
 	if repeatStr == "" {
-		http.Error(w, `{"error": "параметр repeat обязателен"}`, http.StatusBadRequest)
+		writeJSONError(w, "параметр repeat обязателен", http.StatusBadRequest)
 		return
 	}
 
@@ -161,7 +161,7 @@ func NextDateHandler(w http.ResponseWriter, r *http.Request) {
 		var err error
 		now, err = time.Parse("20060102", nowStr)
 		if err != nil {
-			http.Error(w, `{"error": "неверный формат параметра now"}`, http.StatusBadRequest)
+			writeJSONError(w, "неверный формат параметра now", http.StatusBadRequest)
 			return
 		}
 	}
@@ -169,7 +169,7 @@ func NextDateHandler(w http.ResponseWriter, r *http.Request) {
 	// Вычисляем следующую дату
 	nextDate, err := NextDate(now, dateStr, repeatStr)
 	if err != nil {
-		http.Error(w, fmt.Sprintf(`{"error": "%s"}`, err.Error()), http.StatusBadRequest)
+		writeJSONError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 

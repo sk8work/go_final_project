@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"time"
 )
 
 // Task представляет задачу в планировщике
@@ -55,4 +56,80 @@ func GetTaskByID(id int64) (*Task, error) {
 	}
 
 	return &task, nil
+}
+
+// GetTasks возвращает список задач с лимитом
+func GetTasks(limit int) ([]Task, error) {
+	if DB == nil {
+		return nil, fmt.Errorf("база данных не инициализирована")
+	}
+
+	query := `SELECT id, date, title, comment, repeat FROM scheduler ORDER BY date LIMIT ?`
+
+	rows, err := DB.Query(query, limit)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка при запросе задач: %w", err)
+	}
+	defer rows.Close()
+
+	return scanTasks(rows)
+}
+
+// SearchTasks ищет задачи по заголовку или комментарию
+func SearchTasks(search string, limit int) ([]Task, error) {
+	if DB == nil {
+		return nil, fmt.Errorf("база данных не инициализирована")
+	}
+
+	// Пытаемся парсить дату в формате DD.MM.YYYY
+	if date, err := time.Parse("02.01.2006", search); err == nil {
+		// Если search - это дата, ищем по дате
+		dateStr := date.Format("20060102")
+		query := `SELECT id, date, title, comment, repeat FROM scheduler WHERE date = ? ORDER BY date LIMIT ?`
+
+		rows, err := DB.Query(query, dateStr, limit)
+		if err != nil {
+			return nil, fmt.Errorf("ошибка при поиске задач по дате: %w", err)
+		}
+		defer rows.Close()
+
+		return scanTasks(rows)
+	}
+
+	// Иначе ищем по заголовку или комментарию
+	query := `SELECT id, date, title, comment, repeat FROM scheduler 
+	          WHERE title LIKE ? OR comment LIKE ? 
+	          ORDER BY date LIMIT ?`
+
+	searchPattern := "%" + search + "%"
+	rows, err := DB.Query(query, searchPattern, searchPattern, limit)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка при поиске задач: %w", err)
+	}
+	defer rows.Close()
+
+	return scanTasks(rows)
+}
+
+// scanTasks сканирует строки из запроса в массив задач
+func scanTasks(rows *sql.Rows) ([]Task, error) {
+	var tasks []Task
+	for rows.Next() {
+		var task Task
+		if err := rows.Scan(&task.ID, &task.Date, &task.Title, &task.Comment, &task.Repeat); err != nil {
+			return nil, fmt.Errorf("ошибка при сканировании задачи: %w", err)
+		}
+		tasks = append(tasks, task)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("ошибка при итерации по задачам: %w", err)
+	}
+
+	// Возвращаем пустой слайс вместо nil, чтобы в JSON было "tasks": []
+	if tasks == nil {
+		tasks = []Task{}
+	}
+
+	return tasks, nil
 }

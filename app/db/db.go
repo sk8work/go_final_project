@@ -9,7 +9,7 @@ import (
 
 var DB *sql.DB
 
-// SQL схема для создания таблицы - ОБНОВЛЕНА по заданию
+// SQL схема для создания таблицы
 const schema = `
 CREATE TABLE IF NOT EXISTS scheduler (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
