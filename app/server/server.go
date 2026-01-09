@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
@@ -28,14 +27,11 @@ func New(cfg *config.Config) *Server {
 func (s *Server) Run() error {
 	r := chi.NewRouter()
 
-	// Middleware
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
+	// Basic middleware
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	r.Use(middleware.Timeout(60 * time.Second))
 
-	// Регистрация маршрутов
+	// Регистрация маршрутов - ТОЛЬКО статические файлы для Шага 1-2
 	handler := handlers.NewHandler(s.cfg.WebDir)
 	handler.RegisterRoutes(r)
 
@@ -46,9 +42,6 @@ func (s *Server) Run() error {
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
-
-	log.Printf("Starting server on port %d", s.cfg.Port)
-	log.Printf("Serving static files from: %s", s.cfg.WebDir)
 
 	return s.httpServer.ListenAndServe()
 }

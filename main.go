@@ -47,6 +47,7 @@ func main() {
 
 	log.Printf("Server started on port %d", cfg.Port)
 	log.Printf("Database file: %s", dbPath)
+	log.Printf("Serving static files from: %s", cfg.WebDir)
 
 	// Ожидание сигнала завершения
 	<-done

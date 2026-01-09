@@ -18,7 +18,7 @@ func NewHandler(webDir string) *Handler {
 }
 
 func (h *Handler) RegisterRoutes(r chi.Router) {
-	// Статические файлы
+	// ТОЛЬКО статические файлы для Шага 1-2
 	fileServer(r, "/", http.Dir(h.webDir))
 }
 
