@@ -50,9 +50,11 @@ func (s *Server) Run() error {
 
 	log.Printf("Starting server on port %d", s.cfg.Port)
 	log.Printf("API endpoints available:")
-	log.Printf("  POST /api/task - добавление задачи")
-	log.Printf("  GET  /api/nextdate - вычисление следующей даты")
-	log.Printf("  GET  /api/tasks - получение списка задач")
+	log.Printf("  GET    /api/task - получение задачи")
+	log.Printf("  POST   /api/task - добавление задачи")
+	log.Printf("  PUT    /api/task - обновление задачи")
+	log.Printf("  GET    /api/nextdate - вычисление следующей даты")
+	log.Printf("  GET    /api/tasks - получение списка задач")
 
 	return s.httpServer.ListenAndServe()
 }
@@ -63,6 +65,8 @@ func (s *Server) registerAPIRoutes(r chi.Router) {
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/nextdate", api.NextDateHandler)
 		r.Post("/task", api.AddTaskHandler)
+		r.Get("/task", api.GetTaskHandler)
+		r.Put("/task", api.UpdateTaskHandler)
 		r.Get("/tasks", api.TasksHandler)
 	})
 }

@@ -58,6 +58,31 @@ func GetTaskByID(id int64) (*Task, error) {
 	return &task, nil
 }
 
+// UpdateTask обновляет задачу в базе данных
+func UpdateTask(task *Task) error {
+	if DB == nil {
+		return fmt.Errorf("база данных не инициализирована")
+	}
+
+	query := `UPDATE scheduler SET date = ?, title = ?, comment = ?, repeat = ? WHERE id = ?`
+
+	result, err := DB.Exec(query, task.Date, task.Title, task.Comment, task.Repeat, task.ID)
+	if err != nil {
+		return fmt.Errorf("ошибка при обновлении задачи: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("ошибка при получении количества обновленных строк: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("задача с id %d не найдена", task.ID)
+	}
+
+	return nil
+}
+
 // GetTasks возвращает список задач с лимитом
 func GetTasks(limit int) ([]Task, error) {
 	if DB == nil {

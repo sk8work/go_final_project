@@ -17,7 +17,7 @@ type TaskRequest struct {
 	Repeat  string `json:"repeat"`
 }
 
-// addTaskHandler обрабатывает POST запрос на добавление задачи
+// AddTaskHandler обрабатывает POST запрос на добавление задачи
 func AddTaskHandler(w http.ResponseWriter, r *http.Request) {
 	// Парсим JSON запрос
 	var req TaskRequest
