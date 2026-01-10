@@ -1,0 +1,14 @@
+services:
+  todo-app:
+    build: .
+    container_name: todo-scheduler
+    ports:
+      - "7540:7540"
+    volumes:
+      - ./data:/data
+      - ./scheduler.db:/data/scheduler.db
+    environment:
+      - TODO_PORT=7540
+      - TODO_DBFILE=/data/scheduler.db
+      # - TODO_PASSWORD=secret123  # Раскомментировать для включения аутентификации
+    restart: unless-stopped

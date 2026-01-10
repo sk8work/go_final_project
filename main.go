@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"github.com/sk8work/go_final_project/app/db"
 	"log"
 	"net/http"
 	"os"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/sk8work/go_final_project/app/config"
+	"github.com/sk8work/go_final_project/app/db"
 	"github.com/sk8work/go_final_project/app/server"
 )
 
@@ -48,6 +48,14 @@ func main() {
 	log.Printf("Server started on port %d", cfg.Port)
 	log.Printf("Database file: %s", dbPath)
 	log.Printf("Serving static files from: %s", cfg.WebDir)
+
+	// Информация об аутентификации
+	if os.Getenv("TODO_PASSWORD") != "" {
+		log.Printf("Аутентификация включена. Пароль установлен.")
+		log.Printf("Для входа откройте: http://localhost:%d/login.html", cfg.Port)
+	} else {
+		log.Printf("Аутентификация отключена (TODO_PASSWORD не установлен)")
+	}
 
 	// Ожидание сигнала завершения
 	<-done

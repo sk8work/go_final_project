@@ -2,15 +2,18 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/sk8work/go_final_project/app/api"
+	"github.com/sk8work/go_final_project/app/auth"
 	"github.com/sk8work/go_final_project/app/config"
 	"github.com/sk8work/go_final_project/app/handlers"
 )
@@ -27,6 +30,9 @@ func New(cfg *config.Config) *Server {
 }
 
 func (s *Server) Run() error {
+	// Инициализируем аутентификацию
+	auth.Init()
+
 	r := chi.NewRouter()
 
 	// Basic middleware
@@ -49,7 +55,15 @@ func (s *Server) Run() error {
 	}
 
 	log.Printf("Starting server on port %d", s.cfg.Port)
+
+	// Проверяем настройки аутентификации
+	if os.Getenv("TODO_PASSWORD") != "" {
+		log.Printf("Аутентификация включена")
+		log.Printf("Страница входа: http://localhost:%d/login.html", s.cfg.Port)
+	}
+
 	log.Printf("API endpoints available:")
+	log.Printf("  POST   /api/signin - вход (если включена аутентификация)")
 	log.Printf("  GET    /api/task - получение задачи")
 	log.Printf("  POST   /api/task - добавление задачи")
 	log.Printf("  PUT    /api/task - обновление задачи")
@@ -63,15 +77,48 @@ func (s *Server) Run() error {
 
 // registerAPIRoutes регистрирует все API маршруты
 func (s *Server) registerAPIRoutes(r chi.Router) {
-	// API маршруты
+	// Публичные маршруты (не требуют аутентификации)
+	r.Post("/api/signin", api.SigninHandler)
+	r.Get("/api/nextdate", api.NextDateHandler)
+
+	// Защищенные маршруты (требуют аутентификации, если установлен TODO_PASSWORD)
 	r.Route("/api", func(r chi.Router) {
-		r.Get("/nextdate", api.NextDateHandler)
+		// Применяем middleware аутентификации ко всем маршрутам
+		r.Use(authMiddleware)
+
 		r.Post("/task", api.AddTaskHandler)
 		r.Get("/task", api.GetTaskHandler)
 		r.Put("/task", api.UpdateTaskHandler)
 		r.Delete("/task", api.DeleteTaskHandler)
 		r.Post("/task/done", api.DoneTaskHandler)
 		r.Get("/tasks", api.TasksHandler)
+	})
+}
+
+// authMiddleware middleware для проверки аутентификации
+func authMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Если пароль не установлен, пропускаем
+		if os.Getenv("TODO_PASSWORD") == "" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Получаем токен из запроса
+		token := auth.GetTokenFromRequest(r)
+
+		// Проверяем токен
+		valid, err := auth.ValidateToken(token)
+		if !valid || err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(map[string]string{
+				"error": "Требуется аутентификация",
+			})
+			return
+		}
+
+		next.ServeHTTP(w, r)
 	})
 }
 
