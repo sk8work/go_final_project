@@ -61,16 +61,13 @@ func NextDate(now time.Time, dstart string, repeat string) (string, error) {
 	}
 }
 
-// calculateNextDateByDays вычисляет следующую дату для правила d
 func calculateNextDateByDays(now, startDate time.Time, interval int) string {
 	date := startDate
 
-	// Если начальная дата уже в будущем, возвращаем её
-	if AfterNow(date, now) {
-		return date.Format("20060102")
-	}
+	// Всегда добавляем хотя бы один интервал
+	date = date.AddDate(0, 0, interval)
 
-	// Вычисляем следующую дату, добавляя интервалы
+	// Продолжаем добавлять, пока дата не станет после now
 	for !AfterNow(date, now) {
 		date = date.AddDate(0, 0, interval)
 	}
@@ -78,38 +75,31 @@ func calculateNextDateByDays(now, startDate time.Time, interval int) string {
 	return date.Format("20060102")
 }
 
-// calculateNextDateByYears вычисляет следующую дату для правила y
 func calculateNextDateByYears(now, startDate time.Time) string {
 	date := startDate
 
-	// Если начальная дата уже в будущем, возвращаем её
-	if AfterNow(date, now) {
-		return date.Format("20060102")
+	// Всегда добавляем хотя бы один год
+	date = date.AddDate(1, 0, 0)
+
+	// Обработка 29 февраля
+	if date.Month() == time.February && date.Day() == 29 {
+		if !isLeapYear(date.Year()) {
+			// Переносим на 1 марта
+			date = time.Date(date.Year(), time.March, 1, 0, 0, 0, 0, date.Location())
+		}
 	}
 
-	// Начинаем с начальной даты и добавляем годы, пока не превысим now
-	yearsToAdd := 1 // Начинаем с +1 года
-	for {
-		// Создаем новую дату с добавленным годом
-		newDate := time.Date(startDate.Year()+yearsToAdd, startDate.Month(), startDate.Day(),
-			0, 0, 0, 0, startDate.Location())
+	// Продолжаем добавлять, пока дата не станет после now
+	for !AfterNow(date, now) {
+		date = date.AddDate(1, 0, 0)
 
 		// Обработка 29 февраля
-		if newDate.Month() == time.February && newDate.Day() == 29 {
-			if !isLeapYear(newDate.Year()) {
+		if date.Month() == time.February && date.Day() == 29 {
+			if !isLeapYear(date.Year()) {
 				// Переносим на 1 марта
-				newDate = time.Date(newDate.Year(), time.March, 1, 0, 0, 0, 0, newDate.Location())
+				date = time.Date(date.Year(), time.March, 1, 0, 0, 0, 0, date.Location())
 			}
 		}
-
-		date = newDate
-
-		// Если дата стала больше now, выходим
-		if AfterNow(date, now) {
-			break
-		}
-
-		yearsToAdd++
 	}
 
 	return date.Format("20060102")

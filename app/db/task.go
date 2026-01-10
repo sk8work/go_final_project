@@ -83,6 +83,56 @@ func UpdateTask(task *Task) error {
 	return nil
 }
 
+// UpdateTaskDate обновляет только дату задачи
+func UpdateTaskDate(id int64, newDate string) error {
+	if DB == nil {
+		return fmt.Errorf("база данных не инициализирована")
+	}
+
+	query := `UPDATE scheduler SET date = ? WHERE id = ?`
+
+	result, err := DB.Exec(query, newDate, id)
+	if err != nil {
+		return fmt.Errorf("ошибка при обновлении даты задачи: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("ошибка при получении количества обновленных строк: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("задача с id %d не найдена", id)
+	}
+
+	return nil
+}
+
+// DeleteTask удаляет задачу по ID
+func DeleteTask(id int64) error {
+	if DB == nil {
+		return fmt.Errorf("база данных не инициализирована")
+	}
+
+	query := `DELETE FROM scheduler WHERE id = ?`
+
+	result, err := DB.Exec(query, id)
+	if err != nil {
+		return fmt.Errorf("ошибка при удалении задачи: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("ошибка при получении количества удаленных строк: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("задача с id %d не найдена", id)
+	}
+
+	return nil
+}
+
 // GetTasks возвращает список задач с лимитом
 func GetTasks(limit int) ([]Task, error) {
 	if DB == nil {

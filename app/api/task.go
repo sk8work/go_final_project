@@ -155,3 +155,36 @@ func UpdateTaskHandler(w http.ResponseWriter, r *http.Request) {
 	// Возвращаем успешный ответ (пустой JSON)
 	writeJSON(w, map[string]interface{}{})
 }
+
+// DeleteTaskHandler обрабатывает DELETE запрос на удаление задачи
+func DeleteTaskHandler(w http.ResponseWriter, r *http.Request) {
+	// Проверяем метод запроса
+	if r.Method != http.MethodDelete {
+		writeJSONError(w, "метод не поддерживается", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Получаем ID из параметров запроса
+	idStr := r.URL.Query().Get("id")
+	if idStr == "" {
+		writeJSON(w, TaskResponse{Error: "не указан идентификатор задачи"})
+		return
+	}
+
+	// Преобразуем ID в число
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeJSON(w, TaskResponse{Error: "неверный формат идентификатора"})
+		return
+	}
+
+	// Удаляем задачу из БД
+	err = db.DeleteTask(id)
+	if err != nil {
+		writeJSON(w, TaskResponse{Error: "ошибка при удалении задачи: " + err.Error()})
+		return
+	}
+
+	// Возвращаем успешный ответ (пустой JSON)
+	writeJSON(w, map[string]interface{}{})
+}
