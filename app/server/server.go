@@ -21,13 +21,11 @@ import (
 type Server struct {
 	httpServer *http.Server
 	cfg        *config.Config
-	password   string // Кэшируем пароль для аутентификации
 }
 
 func New(cfg *config.Config) *Server {
 	return &Server{
-		cfg:      cfg,
-		password: os.Getenv("TODO_PASSWORD"),
+		cfg: cfg,
 	}
 }
 
@@ -59,7 +57,7 @@ func (s *Server) Run() error {
 	log.Printf("Starting server on port %d", s.cfg.Port)
 
 	// Проверяем настройки аутентификации
-	if s.password != "" {
+	if os.Getenv("TODO_PASSWORD") != "" {
 		log.Printf("Аутентификация включена")
 		log.Printf("Страница входа: http://localhost:%d/login.html", s.cfg.Port)
 	}
@@ -86,7 +84,7 @@ func (s *Server) registerAPIRoutes(r chi.Router) {
 	// Защищенные маршруты (требуют аутентификации, если установлен TODO_PASSWORD)
 	r.Route("/api", func(r chi.Router) {
 		// Применяем middleware аутентификации ко всем маршрутам
-		r.Use(s.authMiddleware)
+		r.Use(authMiddleware)
 
 		r.Post("/task", api.AddTaskHandler)
 		r.Get("/task", api.GetTaskHandler)
@@ -98,10 +96,10 @@ func (s *Server) registerAPIRoutes(r chi.Router) {
 }
 
 // authMiddleware middleware для проверки аутентификации
-func (s *Server) authMiddleware(next http.Handler) http.Handler {
+func authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Если пароль не установлен, пропускаем
-		if s.password == "" {
+		if os.Getenv("TODO_PASSWORD") == "" {
 			next.ServeHTTP(w, r)
 			return
 		}

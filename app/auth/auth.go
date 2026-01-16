@@ -3,6 +3,7 @@ package auth
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -25,6 +26,7 @@ func Init() {
 		// Вычисляем хэш пароля
 		hash := sha256.Sum256([]byte(password))
 		PasswordHash = hex.EncodeToString(hash[:])
+		fmt.Printf("Аутентификация включена. Хэш пароля: %s\n", PasswordHash[:16]+"...")
 	}
 }
 
@@ -107,4 +109,33 @@ func GetTokenFromRequest(r *http.Request) string {
 	}
 
 	return ""
+}
+
+// Middleware создает middleware для проверки аутентификации
+func Middleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Если пароль не установлен, пропускаем без проверки
+		if PasswordHash == "" {
+			next(w, r)
+			return
+		}
+
+		// Получаем токен из запроса
+		token := GetTokenFromRequest(r)
+
+		// Проверяем токен
+		valid, err := ValidateToken(token)
+		if !valid || err != nil {
+			// Возвращаем ошибку аутентификации
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(map[string]string{
+				"error": "Требуется аутентификация",
+			})
+			return
+		}
+
+		// Токен валиден, продолжаем
+		next(w, r)
+	}
 }

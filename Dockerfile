@@ -1,5 +1,8 @@
 # Этап сборки
-FROM golang:1.21-alpine AS builder
+FROM golang:1.24.9-alpine AS builder
+
+# Устанавливаем зависимости для sqlite
+RUN apk add --no-cache gcc
 
 # Устанавливаем рабочую директорию
 WORKDIR /app
@@ -18,6 +21,9 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o todo-app ./main.go
 
 # Финальный этап
 FROM alpine:latest
+
+# Устанавливаем зависимости для sqlite
+RUN apk add --no-cache sqlite
 
 # Создаем пользователя для безопасности
 RUN addgroup -g 1000 todo && \
