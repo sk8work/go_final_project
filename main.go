@@ -29,19 +29,25 @@ func main() {
 	if err := db.Init(dbPath); err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
-	defer db.Close()
 
 	// Создание сервера
 	srv := server.New(cfg)
 
-	// Канал для graceful shutdown
+	// Каналы для управления
 	done := make(chan os.Signal, 1)
+	serverError := make(chan error, 1)
+
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	// Запуск сервера в горутине
 	go func() {
+		log.Printf("Starting server on port %d...", cfg.Port)
 		if err := srv.Run(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Failed to start server: %v", err)
+			// Отправляем ошибку в канал вместо log.Fatal
+			serverError <- err
+		} else {
+			// Если сервер корректно остановлен
+			serverError <- nil
 		}
 	}()
 
@@ -57,16 +63,33 @@ func main() {
 		log.Printf("Аутентификация отключена (TODO_PASSWORD не установлен)")
 	}
 
-	// Ожидание сигнала завершения
-	<-done
+	// Ожидание сигнала завершения или ошибки сервера
+	select {
+	case err := <-serverError:
+		// Ошибка при запуске/работе сервера
+		log.Printf("Server error: %v", err)
+		// Отправляем сигнал для graceful shutdown
+		done <- syscall.SIGTERM
+
+	case <-done:
+		// Получен сигнал завершения (Ctrl+C, SIGTERM)
+		log.Println("Received shutdown signal")
+	}
+
 	log.Println("Server stopping...")
 
-	// Graceful shutdown
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	// Graceful shutdown - сначала сервер, потом БД
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatalf("Server shutdown failed: %v", err)
+		log.Printf("Server shutdown failed: %v", err)
+	}
+
+	// Закрываем соединение с БД после остановки сервера
+	log.Println("Closing database connection...")
+	if err := db.Close(); err != nil {
+		log.Printf("Failed to close database: %v", err)
 	}
 
 	log.Println("Server stopped")

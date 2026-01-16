@@ -19,26 +19,26 @@ func DoneTaskHandler(w http.ResponseWriter, r *http.Request) {
 	// Получаем ID из параметров запроса
 	idStr := r.URL.Query().Get("id")
 	if idStr == "" {
-		writeJSON(w, TaskResponse{Error: "не указан идентификатор задачи"})
+		writeJSONError(w, "не указан идентификатор задачи", http.StatusBadRequest)
 		return
 	}
 
 	// Преобразуем ID в число
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		writeJSON(w, TaskResponse{Error: "неверный формат идентификатора"})
+		writeJSONError(w, "неверный формат идентификатора", http.StatusBadRequest)
 		return
 	}
 
 	// Получаем задачу из БД
 	task, err := db.GetTaskByID(id)
 	if err != nil {
-		writeJSON(w, TaskResponse{Error: "ошибка при получении задачи: " + err.Error()})
+		writeJSONError(w, "ошибка при получении задачи: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	if task == nil {
-		writeJSON(w, TaskResponse{Error: "задача не найдена"})
+		writeJSONError(w, "задача не найдена", http.StatusNotFound)
 		return
 	}
 
@@ -46,7 +46,7 @@ func DoneTaskHandler(w http.ResponseWriter, r *http.Request) {
 	if task.Repeat == "" {
 		err = db.DeleteTask(id)
 		if err != nil {
-			writeJSON(w, TaskResponse{Error: "ошибка при удалении задачи: " + err.Error()})
+			writeJSONError(w, "ошибка при удалении задачи: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 	} else {
@@ -54,21 +54,20 @@ func DoneTaskHandler(w http.ResponseWriter, r *http.Request) {
 		now := time.Now()
 
 		// Используем текущую дату задачи как начальную для расчета
-		// Это важно: каждый раз мы рассчитываем следующую дату от ТЕКУЩЕЙ ДАТЫ ЗАДАЧИ
 		nextDate, err := NextDate(now, task.Date, task.Repeat)
 		if err != nil {
-			writeJSON(w, TaskResponse{Error: "ошибка при вычислении следующей даты: " + err.Error()})
+			writeJSONError(w, "ошибка при вычислении следующей даты: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		// Обновляем дату задачи
 		err = db.UpdateTaskDate(id, nextDate)
 		if err != nil {
-			writeJSON(w, TaskResponse{Error: "ошибка при обновлении задачи: " + err.Error()})
+			writeJSONError(w, "ошибка при обновлении задачи: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 	}
 
 	// Возвращаем успешный ответ (пустой JSON)
-	writeJSON(w, map[string]interface{}{})
+	writeJSON(w, http.StatusOK, map[string]interface{}{})
 }

@@ -2,7 +2,7 @@
 FROM golang:1.24.9-alpine AS builder
 
 # Устанавливаем зависимости для sqlite
-RUN apk add --no-cache gcc
+RUN apk add --no-cache
 
 # Устанавливаем рабочую директорию
 WORKDIR /app

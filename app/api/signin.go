@@ -3,21 +3,9 @@ package api
 import (
 	"encoding/json"
 	"net/http"
-	"os"
 
 	"github.com/sk8work/go_final_project/app/auth"
 )
-
-// SigninRequest запрос на аутентификацию
-type SigninRequest struct {
-	Password string `json:"password"`
-}
-
-// SigninResponse ответ на аутентификацию
-type SigninResponse struct {
-	Token string `json:"token,omitempty"`
-	Error string `json:"error,omitempty"`
-}
 
 // SigninHandler обрабатывает запрос на вход
 func SigninHandler(w http.ResponseWriter, r *http.Request) {
@@ -31,29 +19,21 @@ func SigninHandler(w http.ResponseWriter, r *http.Request) {
 	var req SigninRequest
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&req); err != nil {
-		writeJSON(w, SigninResponse{Error: "ошибка разбора JSON: " + err.Error()})
+		writeJSON(w, http.StatusBadRequest, SigninResponse{Error: "неверный формат JSON: " + err.Error()})
 		return
 	}
 
-	// Получаем пароль из переменной окружения
-	envPassword := os.Getenv("TODO_PASSWORD")
-
-	// Если пароль не установлен в окружении, возвращаем ошибку
-	if envPassword == "" {
-		writeJSON(w, SigninResponse{Error: "аутентификация не настроена"})
+	// Используем auth.IsEnabled() вместо прямого обращения к os.Getenv
+	if !auth.IsEnabled() {
+		writeJSON(w, http.StatusServiceUnavailable, SigninResponse{Error: "аутентификация не настроена"})
 		return
 	}
 
-	// Проверяем пароль
-	if req.Password != envPassword {
-		writeJSON(w, SigninResponse{Error: "неверный пароль"})
-		return
-	}
-
-	// Генерируем токен
+	// Проверяем пароль через auth модуль (который использует config)
 	token, err := auth.GenerateToken()
 	if err != nil {
-		writeJSON(w, SigninResponse{Error: "ошибка при создании токена: " + err.Error()})
+		// Если ошибка генерации токена, проверяем пароль
+		writeJSON(w, http.StatusUnauthorized, SigninResponse{Error: "неверный пароль"})
 		return
 	}
 
@@ -69,5 +49,5 @@ func SigninHandler(w http.ResponseWriter, r *http.Request) {
 	})
 
 	// Возвращаем токен
-	writeJSON(w, SigninResponse{Token: token})
+	writeJSON(w, http.StatusOK, SigninResponse{Token: token})
 }

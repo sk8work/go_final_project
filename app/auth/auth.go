@@ -1,44 +1,39 @@
 package auth
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/sk8work/go_final_project/app/config"
 )
 
 // JWTSecretKey ключ для подписи JWT
 var JWTSecretKey = []byte("todo-secret-key")
-
-// PasswordHash хэш пароля из переменной окружения
-var PasswordHash string
+var cfg *config.Config
 
 // Init инициализирует модуль аутентификации
-func Init() {
-	password := os.Getenv("TODO_PASSWORD")
-	if password != "" {
-		// Вычисляем хэш пароля
-		hash := sha256.Sum256([]byte(password))
-		PasswordHash = hex.EncodeToString(hash[:])
-		fmt.Printf("Аутентификация включена. Хэш пароля: %s\n", PasswordHash[:16]+"...")
+func Init(config *config.Config) {
+	cfg = config
+
+	if cfg.IsAuthEnabled() {
+		fmt.Printf("Аутентификация включена. Хэш пароля: %s\n", cfg.PasswordHash[:16]+"...")
+	} else {
+		fmt.Println("Аутентификация отключена (TODO_PASSWORD не установлен)")
 	}
 }
 
 // GenerateToken создает JWT токен
 func GenerateToken() (string, error) {
-	if PasswordHash == "" {
+	if cfg == nil || !cfg.IsAuthEnabled() {
 		return "", fmt.Errorf("аутентификация не настроена")
 	}
 
 	// Создаем claims с хэшем пароля
 	claims := jwt.MapClaims{
-		"password_hash": PasswordHash,
+		"password_hash": cfg.PasswordHash,
 		"exp":           time.Now().Add(8 * time.Hour).Unix(),
 		"iat":           time.Now().Unix(),
 	}
@@ -57,8 +52,8 @@ func GenerateToken() (string, error) {
 
 // ValidateToken проверяет JWT токен
 func ValidateToken(tokenString string) (bool, error) {
-	if PasswordHash == "" {
-		// Если пароль не установлен, аутентификация не требуется
+	if cfg == nil || !cfg.IsAuthEnabled() {
+		// Если аутентификация отключена, пропускаем
 		return true, nil
 	}
 
@@ -83,7 +78,7 @@ func ValidateToken(tokenString string) (bool, error) {
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 		// Проверяем хэш пароля
 		if hash, ok := claims["password_hash"].(string); ok {
-			return hash == PasswordHash, nil
+			return hash == cfg.PasswordHash, nil
 		}
 		return false, fmt.Errorf("неверный формат claims")
 	}
@@ -111,31 +106,7 @@ func GetTokenFromRequest(r *http.Request) string {
 	return ""
 }
 
-// Middleware создает middleware для проверки аутентификации
-func Middleware(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// Если пароль не установлен, пропускаем без проверки
-		if PasswordHash == "" {
-			next(w, r)
-			return
-		}
-
-		// Получаем токен из запроса
-		token := GetTokenFromRequest(r)
-
-		// Проверяем токен
-		valid, err := ValidateToken(token)
-		if !valid || err != nil {
-			// Возвращаем ошибку аутентификации
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(map[string]string{
-				"error": "Требуется аутентификация",
-			})
-			return
-		}
-
-		// Токен валиден, продолжаем
-		next(w, r)
-	}
+// IsEnabled проверяет, включена ли аутентификация
+func IsEnabled() bool {
+	return cfg != nil && cfg.IsAuthEnabled()
 }

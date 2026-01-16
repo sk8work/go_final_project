@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -30,8 +29,8 @@ func New(cfg *config.Config) *Server {
 }
 
 func (s *Server) Run() error {
-	// Инициализируем аутентификацию
-	auth.Init()
+	// Инициализируем аутентификацию с конфигурацией
+	auth.Init(s.cfg)
 
 	r := chi.NewRouter()
 
@@ -55,11 +54,15 @@ func (s *Server) Run() error {
 	}
 
 	log.Printf("Starting server on port %d", s.cfg.Port)
+	log.Printf("Database file: %s", s.cfg.DBFile)
+	log.Printf("Serving static files from: %s", s.cfg.WebDir)
 
 	// Проверяем настройки аутентификации
-	if os.Getenv("TODO_PASSWORD") != "" {
+	if s.cfg.IsAuthEnabled() {
 		log.Printf("Аутентификация включена")
-		log.Printf("Страница входа: http://localhost:%d/login.html", s.cfg.Port)
+		log.Printf("Для входа откройте: http://localhost:%d/login.html", s.cfg.Port)
+	} else {
+		log.Printf("Аутентификация отключена")
 	}
 
 	log.Printf("API endpoints available:")
@@ -81,7 +84,7 @@ func (s *Server) registerAPIRoutes(r chi.Router) {
 	r.Post("/api/signin", api.SigninHandler)
 	r.Get("/api/nextdate", api.NextDateHandler)
 
-	// Защищенные маршруты (требуют аутентификации, если установлен TODO_PASSWORD)
+	// Защищенные маршруты (требуют аутентификации, если она включена)
 	r.Route("/api", func(r chi.Router) {
 		// Применяем middleware аутентификации ко всем маршрутам
 		r.Use(authMiddleware)
@@ -98,8 +101,8 @@ func (s *Server) registerAPIRoutes(r chi.Router) {
 // authMiddleware middleware для проверки аутентификации
 func authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Если пароль не установлен, пропускаем
-		if os.Getenv("TODO_PASSWORD") == "" {
+		// Используем предварительно загруженную конфигурацию
+		if !auth.IsEnabled() {
 			next.ServeHTTP(w, r)
 			return
 		}

@@ -6,11 +6,12 @@ import (
 	"github.com/sk8work/go_final_project/app/db"
 )
 
-// TasksResponse представляет ответ со списком задач
-type TasksResponse struct {
-	Tasks []TaskJSON `json:"tasks"`
-	Error string     `json:"error,omitempty"`
-}
+const (
+	// DefaultTasksLimit лимит задач по умолчанию
+	DefaultTasksLimit = 50
+	// MaxTasksLimit максимальный лимит задач
+	MaxTasksLimit = 1000
+)
 
 // TasksHandler обрабатывает GET запрос на получение списка задач
 func TasksHandler(w http.ResponseWriter, r *http.Request) {
@@ -23,11 +24,11 @@ func TasksHandler(w http.ResponseWriter, r *http.Request) {
 	// Получаем параметр поиска
 	search := r.URL.Query().Get("search")
 
+	// Получаем лимит из параметров запроса
+	limit := GetLimitFromRequest(r)
+
 	var dbTasks []db.Task
 	var err error
-
-	// Устанавливаем лимит (например, 50 задач)
-	limit := 50
 
 	if search != "" {
 		// Поиск задач
@@ -50,5 +51,5 @@ func TasksHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Возвращаем успешный ответ
 	resp := TasksResponse{Tasks: tasks}
-	writeJSON(w, resp)
+	writeJSON(w, http.StatusOK, resp)
 }

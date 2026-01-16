@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/sk8work/go_final_project/app/models"
 )
 
 // NextDate вычисляет следующую дату выполнения задачи
@@ -17,7 +19,7 @@ func NextDate(now time.Time, dstart string, repeat string) (string, error) {
 	}
 
 	// Парсим начальную дату
-	startDate, err := time.Parse("20060102", dstart)
+	startDate, err := time.Parse(models.DateFormat, dstart)
 	if err != nil {
 		return "", fmt.Errorf("неверный формат даты: %w", err)
 	}
@@ -72,7 +74,7 @@ func calculateNextDateByDays(now, startDate time.Time, interval int) string {
 		date = date.AddDate(0, 0, interval)
 	}
 
-	return date.Format("20060102")
+	return date.Format(models.DateFormat)
 }
 
 func calculateNextDateByYears(now, startDate time.Time) string {
@@ -102,7 +104,7 @@ func calculateNextDateByYears(now, startDate time.Time) string {
 		}
 	}
 
-	return date.Format("20060102")
+	return date.Format(models.DateFormat)
 }
 
 // AfterNow проверяет, что дата находится после now (без учёта времени)
@@ -149,7 +151,7 @@ func NextDateHandler(w http.ResponseWriter, r *http.Request) {
 		now = time.Now()
 	} else {
 		var err error
-		now, err = time.Parse("20060102", nowStr)
+		now, err = time.Parse(models.DateFormat, nowStr)
 		if err != nil {
 			writeJSONError(w, "неверный формат параметра now", http.StatusBadRequest)
 			return

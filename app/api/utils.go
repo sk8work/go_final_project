@@ -2,13 +2,39 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 )
 
-// writeJSON записывает JSON ответ
-func writeJSON(w http.ResponseWriter, data interface{}) {
+// GetLimitFromRequest извлекает лимит из параметров запроса
+func GetLimitFromRequest(r *http.Request) int {
+	limitStr := r.URL.Query().Get("limit")
+	if limitStr == "" {
+		return DefaultTasksLimit
+	}
+
+	// Пытаемся преобразовать в число
+	var limit int
+	if _, err := fmt.Sscanf(limitStr, "%d", &limit); err != nil {
+		return DefaultTasksLimit
+	}
+
+	// Проверяем границы
+	if limit <= 0 {
+		return DefaultTasksLimit
+	}
+	if limit > MaxTasksLimit {
+		return MaxTasksLimit
+	}
+
+	return limit
+}
+
+// writeJSON записывает JSON ответ с указанным статус-кодом
+func writeJSON(w http.ResponseWriter, statusCode int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.WriteHeader(statusCode)
 	json.NewEncoder(w).Encode(data)
 }
 
@@ -17,21 +43,6 @@ func writeJSONError(w http.ResponseWriter, errorMsg string, statusCode int) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(statusCode)
 	json.NewEncoder(w).Encode(map[string]string{"error": errorMsg})
-}
-
-// TaskResponse представляет ответ с ID задачи или ошибкой
-type TaskResponse struct {
-	ID    string `json:"id,omitempty"`
-	Error string `json:"error,omitempty"`
-}
-
-// TaskJSON представляет задачу в формате JSON (с полем ID как строка)
-type TaskJSON struct {
-	ID      string `json:"id"`
-	Date    string `json:"date"`
-	Title   string `json:"title"`
-	Comment string `json:"comment"`
-	Repeat  string `json:"repeat"`
 }
 
 // checkAuth проверяет аутентификацию (простая версия)

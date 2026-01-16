@@ -3,10 +3,11 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/sk8work/go_final_project/app/models"
-	_ "strings"
-	_ "time"
 )
 
 type TaskRepository struct {
@@ -15,6 +16,16 @@ type TaskRepository struct {
 
 func NewTaskRepository(db *sql.DB) *TaskRepository {
 	return &TaskRepository{db: db}
+}
+
+// TaskFilter определяет параметры фильтрации задач
+type TaskFilter struct {
+	ID      *int
+	Date    *string
+	Search  *string
+	Limit   *int
+	Offset  *int
+	OrderBy string // Например: "date ASC", "date DESC", "title"
 }
 
 // Create создаёт новую задачу
@@ -44,44 +55,77 @@ func (r *TaskRepository) Create(ctx context.Context, task *models.Task) (int64, 
 
 // GetByID возвращает задачу по ID
 func (r *TaskRepository) GetByID(ctx context.Context, id int) (*models.Task, error) {
-	query := `
-        SELECT id, date, title, comment, repeat
-        FROM scheduler
-        WHERE id = ?
-    `
-
-	row := r.db.QueryRowContext(ctx, query, id)
-
-	var task models.Task
-	err := row.Scan(
-		&task.ID,
-		&task.Date,
-		&task.Title,
-		&task.Comment,
-		&task.Repeat,
-	)
-
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
+	filter := TaskFilter{ID: &id}
+	tasks, err := r.Find(ctx, filter)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get task: %w", err)
+		return nil, err
 	}
-
-	return &task, nil
+	if len(tasks) == 0 {
+		return nil, fmt.Errorf("task with id %d not found", id)
+	}
+	return &tasks[0], nil
 }
 
-// GetAll возвращает все задачи, отсортированные по дате
-func (r *TaskRepository) GetAll(ctx context.Context) ([]models.Task, error) {
-	query := `
+// Find возвращает задачи с применением фильтров
+func (r *TaskRepository) Find(ctx context.Context, filter TaskFilter) ([]models.Task, error) {
+	var (
+		queryBuilder strings.Builder
+		args         []interface{}
+		conditions   []string
+	)
+
+	// Базовый запрос
+	queryBuilder.WriteString(`
         SELECT id, date, title, comment, repeat
         FROM scheduler
-        ORDER BY date
-    `
+    `)
 
-	rows, err := r.db.QueryContext(ctx, query)
+	// Добавляем условия фильтрации
+	if filter.ID != nil {
+		conditions = append(conditions, "id = ?")
+		args = append(args, *filter.ID)
+	}
+
+	if filter.Date != nil {
+		conditions = append(conditions, "date = ?")
+		args = append(args, *filter.Date)
+	}
+
+	if filter.Search != nil {
+		searchPattern := "%" + *filter.Search + "%"
+		conditions = append(conditions, "(title LIKE ? OR comment LIKE ?)")
+		args = append(args, searchPattern, searchPattern)
+	}
+
+	// Объединяем условия
+	if len(conditions) > 0 {
+		queryBuilder.WriteString(" WHERE ")
+		queryBuilder.WriteString(strings.Join(conditions, " AND "))
+	}
+
+	// Сортировка
+	orderBy := "date ASC" // значение по умолчанию
+	if filter.OrderBy != "" {
+		orderBy = filter.OrderBy
+	}
+	queryBuilder.WriteString(" ORDER BY ")
+	queryBuilder.WriteString(orderBy)
+
+	// Лимит и оффсет
+	if filter.Limit != nil {
+		queryBuilder.WriteString(" LIMIT ?")
+		args = append(args, *filter.Limit)
+	}
+
+	if filter.Offset != nil {
+		queryBuilder.WriteString(" OFFSET ?")
+		args = append(args, *filter.Offset)
+	}
+
+	// Выполняем запрос
+	rows, err := r.db.QueryContext(ctx, queryBuilder.String(), args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query tasks: %w", err)
+		return nil, fmt.Errorf("failed to find tasks: %w", err)
 	}
 	defer rows.Close()
 
@@ -159,77 +203,33 @@ func (r *TaskRepository) Delete(ctx context.Context, id int) error {
 	return nil
 }
 
+// Следующие методы можно оставить для обратной совместимости,
+// или переписать их использование на Find
+
+// GetAll возвращает все задачи, отсортированные по дате
+func (r *TaskRepository) GetAll(ctx context.Context) ([]models.Task, error) {
+	return r.Find(ctx, TaskFilter{
+		OrderBy: "date ASC",
+	})
+}
+
 // GetByDate возвращает задачи на конкретную дату
 func (r *TaskRepository) GetByDate(ctx context.Context, date string) ([]models.Task, error) {
-	query := `
-        SELECT id, date, title, comment, repeat
-        FROM scheduler
-        WHERE date = ?
-        ORDER BY id
-    `
-
-	rows, err := r.db.QueryContext(ctx, query, date)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query tasks by date: %w", err)
-	}
-	defer rows.Close()
-
-	var tasks []models.Task
-	for rows.Next() {
-		var task models.Task
-		if err := rows.Scan(
-			&task.ID,
-			&task.Date,
-			&task.Title,
-			&task.Comment,
-			&task.Repeat,
-		); err != nil {
-			return nil, fmt.Errorf("failed to scan task: %w", err)
-		}
-		tasks = append(tasks, task)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("rows iteration error: %w", err)
-	}
-
-	return tasks, nil
+	return r.Find(ctx, TaskFilter{
+		Date:    &date,
+		OrderBy: "id ASC",
+	})
 }
 
 // Search ищет задачи по заголовку или комментарию
 func (r *TaskRepository) Search(ctx context.Context, queryStr string) ([]models.Task, error) {
-	query := `
-        SELECT id, date, title, comment, repeat
-        FROM scheduler
-        WHERE title LIKE ? OR comment LIKE ?
-        ORDER BY date, id
-    `
+	return r.Find(ctx, TaskFilter{
+		Search:  &queryStr,
+		OrderBy: "date ASC, id ASC",
+	})
+}
 
-	searchPattern := "%" + queryStr + "%"
-	rows, err := r.db.QueryContext(ctx, query, searchPattern, searchPattern)
-	if err != nil {
-		return nil, fmt.Errorf("failed to search tasks: %w", err)
-	}
-	defer rows.Close()
-
-	var tasks []models.Task
-	for rows.Next() {
-		var task models.Task
-		if err := rows.Scan(
-			&task.ID,
-			&task.Date,
-			&task.Title,
-			&task.Comment,
-			&task.Repeat,
-		); err != nil {
-			return nil, fmt.Errorf("failed to scan task: %w", err)
-		}
-		tasks = append(tasks, task)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("rows iteration error: %w", err)
-	}
-
-	return tasks, nil
+// IsNotFoundError проверяет, является ли ошибка ошибкой "не найдено"
+func IsNotFoundError(err error) bool {
+	return err != nil && errors.Is(err, sql.ErrNoRows)
 }

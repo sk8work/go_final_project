@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
+
+	"github.com/sk8work/go_final_project/app/models"
 )
 
 // Task представляет задачу в планировщике
@@ -17,10 +19,6 @@ type Task struct {
 
 // AddTask добавляет задачу в базу данных
 func AddTask(task *Task) (int64, error) {
-	if DB == nil {
-		return 0, fmt.Errorf("база данных не инициализирована")
-	}
-
 	query := `INSERT INTO scheduler (date, title, comment, repeat) VALUES (?, ?, ?, ?)`
 
 	result, err := DB.Exec(query, task.Date, task.Title, task.Comment, task.Repeat)
@@ -38,10 +36,6 @@ func AddTask(task *Task) (int64, error) {
 
 // GetTaskByID возвращает задачу по ID
 func GetTaskByID(id int64) (*Task, error) {
-	if DB == nil {
-		return nil, fmt.Errorf("база данных не инициализирована")
-	}
-
 	query := `SELECT id, date, title, comment, repeat FROM scheduler WHERE id = ?`
 
 	row := DB.QueryRow(query, id)
@@ -60,10 +54,6 @@ func GetTaskByID(id int64) (*Task, error) {
 
 // UpdateTask обновляет задачу в базе данных
 func UpdateTask(task *Task) error {
-	if DB == nil {
-		return fmt.Errorf("база данных не инициализирована")
-	}
-
 	query := `UPDATE scheduler SET date = ?, title = ?, comment = ?, repeat = ? WHERE id = ?`
 
 	result, err := DB.Exec(query, task.Date, task.Title, task.Comment, task.Repeat, task.ID)
@@ -85,10 +75,6 @@ func UpdateTask(task *Task) error {
 
 // UpdateTaskDate обновляет только дату задачи
 func UpdateTaskDate(id int64, newDate string) error {
-	if DB == nil {
-		return fmt.Errorf("база данных не инициализирована")
-	}
-
 	query := `UPDATE scheduler SET date = ? WHERE id = ?`
 
 	result, err := DB.Exec(query, newDate, id)
@@ -110,10 +96,6 @@ func UpdateTaskDate(id int64, newDate string) error {
 
 // DeleteTask удаляет задачу по ID
 func DeleteTask(id int64) error {
-	if DB == nil {
-		return fmt.Errorf("база данных не инициализирована")
-	}
-
 	query := `DELETE FROM scheduler WHERE id = ?`
 
 	result, err := DB.Exec(query, id)
@@ -135,10 +117,6 @@ func DeleteTask(id int64) error {
 
 // GetTasks возвращает список задач с лимитом
 func GetTasks(limit int) ([]Task, error) {
-	if DB == nil {
-		return nil, fmt.Errorf("база данных не инициализирована")
-	}
-
 	query := `SELECT id, date, title, comment, repeat FROM scheduler ORDER BY date LIMIT ?`
 
 	rows, err := DB.Query(query, limit)
@@ -152,14 +130,10 @@ func GetTasks(limit int) ([]Task, error) {
 
 // SearchTasks ищет задачи по заголовку или комментарию
 func SearchTasks(search string, limit int) ([]Task, error) {
-	if DB == nil {
-		return nil, fmt.Errorf("база данных не инициализирована")
-	}
-
 	// Пытаемся парсить дату в формате DD.MM.YYYY
-	if date, err := time.Parse("02.01.2006", search); err == nil {
+	if date, err := time.Parse(models.DisplayFormat, search); err == nil {
 		// Если search - это дата, ищем по дате
-		dateStr := date.Format("20060102")
+		dateStr := date.Format(models.DateFormat)
 		query := `SELECT id, date, title, comment, repeat FROM scheduler WHERE date = ? ORDER BY date LIMIT ?`
 
 		rows, err := DB.Query(query, dateStr, limit)

@@ -5,6 +5,14 @@ import (
 	"time"
 )
 
+// Константы для форматов даты
+const (
+	DateFormat    = "20060102"   // Основной формат даты для базы данных
+	DisplayFormat = "02.01.2006" // Формат для отображения пользователю
+	ISOFormat     = "2006-01-02" // ISO формат
+	TimeFormat    = "15:04"      // Формат времени
+)
+
 // Task представляет собой задачу в планировщике
 type Task struct {
 	ID      int    `json:"id"`
@@ -14,34 +22,95 @@ type Task struct {
 	Repeat  string `json:"repeat"` // Правила повторения (до 128 символов)
 }
 
-// Validate проверяет корректность данных задачи
+// Validate проверяет корректность данных задачи (базовая бизнес-логика)
 func (t *Task) Validate() error {
-	// Проверяем формат даты
+	// Проверяем формат даты (это бизнес-логика, а не валидация БД)
 	if t.Date != "" {
-		if _, err := time.Parse("20060102", t.Date); err != nil {
-			return fmt.Errorf("invalid date format: %w", err)
+		if _, err := time.Parse(DateFormat, t.Date); err != nil {
+			return fmt.Errorf("invalid date format, expected %s: %w", DateFormat, err)
 		}
 	}
 
-	// Проверяем длину заголовка
-	if len(t.Title) > 255 {
-		return fmt.Errorf("title too long, max 255 characters")
+	// Проверяем обязательные поля (бизнес-логика)
+	if t.Title == "" {
+		return fmt.Errorf("title is required")
 	}
 
-	// Проверяем длину правила повторения
-	if len(t.Repeat) > 128 {
+	// Проверяем правило повторения (бизнес-логика)
+	if t.Repeat != "" {
+		if err := validateRepeatRule(t.Repeat); err != nil {
+			return fmt.Errorf("invalid repeat rule: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// validateRepeatRule проверяет корректность правила повторения
+func validateRepeatRule(repeat string) error {
+	// Базовая проверка - не пустая строка и не слишком длинная
+	// Детальная проверка выполняется в функции NextDate
+	if repeat == "" {
+		return nil // Пустое правило - это нормально
+	}
+
+	if len(repeat) > 128 {
 		return fmt.Errorf("repeat rule too long, max 128 characters")
 	}
 
 	return nil
 }
 
-// ToMap преобразует задачу в map для SQL запросов
-func (t *Task) ToMap() map[string]interface{} {
-	return map[string]interface{}{
-		"date":    t.Date,
-		"title":   t.Title,
-		"comment": t.Comment,
-		"repeat":  t.Repeat,
+// ParseDate парсит строку даты в формате DateFormat
+func ParseDate(dateStr string) (time.Time, error) {
+	return time.Parse(DateFormat, dateStr)
+}
+
+// FormatDate форматирует время в строку DateFormat
+func FormatDate(date time.Time) string {
+	return date.Format(DateFormat)
+}
+
+// FormatDisplay форматирует дату для отображения пользователю
+func FormatDisplay(dateStr string) (string, error) {
+	date, err := ParseDate(dateStr)
+	if err != nil {
+		return "", err
 	}
+	return date.Format(DisplayFormat), nil
+}
+
+// ParseDisplay парсит дату из пользовательского формата
+func ParseDisplay(displayStr string) (string, error) {
+	date, err := time.Parse(DisplayFormat, displayStr)
+	if err != nil {
+		return "", err
+	}
+	return date.Format(DateFormat), nil
+}
+
+// IsValidDate проверяет, является ли строка корректной датой в основном формате
+func IsValidDate(dateStr string) bool {
+	_, err := ParseDate(dateStr)
+	return err == nil
+}
+
+// Today возвращает текущую дату в основном формате
+func Today() string {
+	return FormatDate(time.Now())
+}
+
+// IsToday проверяет, является ли дата сегодняшней
+func IsToday(dateStr string) bool {
+	today := Today()
+	return dateStr == today
+}
+
+// IsPastDate проверяет, находится ли дата в прошлом
+func IsPastDate(dateStr string) bool {
+	date, err := ParseDate(dateStr)
+	if err != nil {
+		return false
+	}
+	return date.Before(time.Now().Truncate(24 * time.Hour))
 }

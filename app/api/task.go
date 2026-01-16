@@ -2,21 +2,14 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/sk8work/go_final_project/app/db"
+	"github.com/sk8work/go_final_project/app/models"
 )
-
-// UpdateTaskRequest представляет запрос на обновление задачи
-type UpdateTaskRequest struct {
-	ID      string `json:"id"`
-	Date    string `json:"date"`
-	Title   string `json:"title"`
-	Comment string `json:"comment"`
-	Repeat  string `json:"repeat"`
-}
 
 // convertTaskToJSON конвертирует задачу из БД в JSON формат
 func convertTaskToJSON(task *db.Task) TaskJSON {
@@ -31,6 +24,12 @@ func convertTaskToJSON(task *db.Task) TaskJSON {
 
 // GetTaskHandler обрабатывает GET запрос на получение задачи
 func GetTaskHandler(w http.ResponseWriter, r *http.Request) {
+	// Проверяем метод запроса
+	if r.Method != http.MethodGet {
+		writeJSONError(w, "метод не поддерживается", http.StatusMethodNotAllowed)
+		return
+	}
+
 	// Получаем ID из параметров запроса
 	idStr := r.URL.Query().Get("id")
 	if idStr == "" {
@@ -59,34 +58,40 @@ func GetTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Конвертируем задачу в JSON формат и возвращаем
 	taskJSON := convertTaskToJSON(task)
-	writeJSON(w, taskJSON)
+	writeJSON(w, http.StatusOK, taskJSON)
 }
 
 // UpdateTaskHandler обрабатывает PUT запрос на обновление задачи
 func UpdateTaskHandler(w http.ResponseWriter, r *http.Request) {
+	// Проверяем метод запроса
+	if r.Method != http.MethodPut {
+		writeJSONError(w, "метод не поддерживается", http.StatusMethodNotAllowed)
+		return
+	}
+
 	// Парсим JSON запрос
-	var req UpdateTaskRequest
+	var req TaskRequest
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&req); err != nil {
-		writeJSON(w, TaskResponse{Error: "ошибка разбора JSON: " + err.Error()})
+		writeJSONError(w, "неверный формат JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	// Проверяем обязательные поля
 	if req.ID == "" {
-		writeJSON(w, TaskResponse{Error: "не указан идентификатор задачи"})
+		writeJSONError(w, "не указан идентификатор задачи", http.StatusBadRequest)
 		return
 	}
 
 	if req.Title == "" {
-		writeJSON(w, TaskResponse{Error: "не указан заголовок задачи"})
+		writeJSONError(w, "не указан заголовок задачи", http.StatusBadRequest)
 		return
 	}
 
 	// Преобразуем ID в число
 	id, err := strconv.ParseInt(req.ID, 10, 64)
 	if err != nil {
-		writeJSON(w, TaskResponse{Error: "неверный формат идентификатора"})
+		writeJSONError(w, "неверный формат идентификатора", http.StatusBadRequest)
 		return
 	}
 
@@ -103,12 +108,12 @@ func UpdateTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Если дата не указана, используем сегодняшнюю
 	if req.Date == "" {
-		task.Date = now.Format("20060102")
+		task.Date = models.Today()
 	} else {
 		// Проверяем формат даты
-		date, err := time.Parse("20060102", req.Date)
+		date, err := time.Parse(models.DateFormat, req.Date)
 		if err != nil {
-			writeJSON(w, TaskResponse{Error: "неверный формат даты"})
+			writeJSONError(w, "неверный формат даты", http.StatusBadRequest)
 			return
 		}
 		task.Date = req.Date
@@ -117,12 +122,12 @@ func UpdateTaskHandler(w http.ResponseWriter, r *http.Request) {
 		if !AfterNow(date, now) {
 			if req.Repeat == "" {
 				// Без правила повторения - используем сегодняшнюю дату
-				task.Date = now.Format("20060102")
+				task.Date = models.Today()
 			} else {
 				// С правилом повторения - вычисляем следующую дату
 				nextDate, err := NextDate(now, req.Date, req.Repeat)
 				if err != nil {
-					writeJSON(w, TaskResponse{Error: err.Error()})
+					writeJSONError(w, err.Error(), http.StatusBadRequest)
 					return
 				}
 				task.Date = nextDate
@@ -140,7 +145,7 @@ func UpdateTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 		_, err := NextDate(now, checkDate, req.Repeat)
 		if err != nil {
-			writeJSON(w, TaskResponse{Error: err.Error()})
+			writeJSONError(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 	}
@@ -148,12 +153,17 @@ func UpdateTaskHandler(w http.ResponseWriter, r *http.Request) {
 	// Обновляем задачу в БД
 	err = db.UpdateTask(task)
 	if err != nil {
-		writeJSON(w, TaskResponse{Error: "ошибка при обновлении задачи: " + err.Error()})
+		// Проверяем тип ошибки
+		if err.Error() == fmt.Sprintf("задача с id %d не найдена", id) {
+			writeJSONError(w, "задача не найдена", http.StatusNotFound)
+		} else {
+			writeJSONError(w, "ошибка при обновлении задачи: "+err.Error(), http.StatusInternalServerError)
+		}
 		return
 	}
 
 	// Возвращаем успешный ответ (пустой JSON)
-	writeJSON(w, map[string]interface{}{})
+	writeJSON(w, http.StatusOK, map[string]interface{}{})
 }
 
 // DeleteTaskHandler обрабатывает DELETE запрос на удаление задачи
@@ -167,24 +177,29 @@ func DeleteTaskHandler(w http.ResponseWriter, r *http.Request) {
 	// Получаем ID из параметров запроса
 	idStr := r.URL.Query().Get("id")
 	if idStr == "" {
-		writeJSON(w, TaskResponse{Error: "не указан идентификатор задачи"})
+		writeJSONError(w, "не указан идентификатор задачи", http.StatusBadRequest)
 		return
 	}
 
 	// Преобразуем ID в число
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		writeJSON(w, TaskResponse{Error: "неверный формат идентификатора"})
+		writeJSONError(w, "неверный формат идентификатора", http.StatusBadRequest)
 		return
 	}
 
 	// Удаляем задачу из БД
 	err = db.DeleteTask(id)
 	if err != nil {
-		writeJSON(w, TaskResponse{Error: "ошибка при удалении задачи: " + err.Error()})
+		// Проверяем тип ошибки
+		if err.Error() == fmt.Sprintf("задача с id %d не найдена", id) {
+			writeJSONError(w, "задача не найдена", http.StatusNotFound)
+		} else {
+			writeJSONError(w, "ошибка при удалении задачи: "+err.Error(), http.StatusInternalServerError)
+		}
 		return
 	}
 
 	// Возвращаем успешный ответ (пустой JSON)
-	writeJSON(w, map[string]interface{}{})
+	writeJSON(w, http.StatusOK, map[string]interface{}{})
 }

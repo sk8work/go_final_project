@@ -3,8 +3,9 @@ package db
 import (
 	"database/sql"
 	"fmt"
-	_ "modernc.org/sqlite"
 	"os"
+
+	_ "modernc.org/sqlite"
 )
 
 var DB *sql.DB
@@ -13,10 +14,10 @@ var DB *sql.DB
 const schema = `
 CREATE TABLE IF NOT EXISTS scheduler (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    date CHAR(8) NOT NULL DEFAULT '',
-    title VARCHAR(255) NOT NULL DEFAULT '',
-    comment TEXT,
-    repeat VARCHAR(128) DEFAULT ''
+    date CHAR(8) NOT NULL DEFAULT '' CHECK(length(date) = 8 OR date = ''),
+    title VARCHAR(255) NOT NULL DEFAULT '' CHECK(length(title) <= 255),
+    comment TEXT CHECK(length(comment) <= 1000),
+    repeat VARCHAR(128) DEFAULT '' CHECK(length(repeat) <= 128)
 );
 
 CREATE INDEX IF NOT EXISTS idx_scheduler_date 
@@ -37,6 +38,7 @@ func Init(dbFile string) error {
 
 	// Проверяем соединение
 	if err := db.Ping(); err != nil {
+		db.Close()
 		return fmt.Errorf("failed to ping database: %w", err)
 	}
 
@@ -66,10 +68,6 @@ func Init(dbFile string) error {
 		}
 	}
 
-	// Устанавливаем параметры соединения
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
-
 	DB = db
 	return nil
 }
@@ -85,4 +83,18 @@ func Close() error {
 // GetDB возвращает экземпляр базы данных
 func GetDB() *sql.DB {
 	return DB
+}
+
+// IsConnected проверяет, подключена ли база данных
+func IsConnected() bool {
+	if DB == nil {
+		return false
+	}
+
+	// Проверяем пинг
+	if err := DB.Ping(); err != nil {
+		return false
+	}
+
+	return true
 }
