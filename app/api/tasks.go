@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/sk8work/go_final_project/app/db"
@@ -10,6 +11,26 @@ import (
 type TasksResponse struct {
 	Tasks []TaskJSON `json:"tasks"`
 	Error string     `json:"error,omitempty"`
+}
+
+// TaskJSON представляет задачу в формате JSON
+type TaskJSON struct {
+	ID      string `json:"id"`
+	Date    string `json:"date"`
+	Title   string `json:"title"`
+	Comment string `json:"comment"`
+	Repeat  string `json:"repeat"`
+}
+
+// convertTaskToJSON конвертирует задачу из БД в JSON формат
+func convertTaskToJSON(task *db.Task) TaskJSON {
+	return TaskJSON{
+		ID:      fmt.Sprintf("%d", task.ID),
+		Date:    task.Date,
+		Title:   task.Title,
+		Comment: task.Comment,
+		Repeat:  task.Repeat,
+	}
 }
 
 // TasksHandler обрабатывает GET запрос на получение списка задач
@@ -26,15 +47,12 @@ func TasksHandler(w http.ResponseWriter, r *http.Request) {
 	var dbTasks []db.Task
 	var err error
 
-	// Устанавливаем лимит (например, 50 задач)
-	limit := 50
-
 	if search != "" {
 		// Поиск задач
-		dbTasks, err = db.SearchTasks(search, limit)
+		dbTasks, err = db.SearchTasks(search, TasksLimit)
 	} else {
 		// Получение всех задач
-		dbTasks, err = db.GetTasks(limit)
+		dbTasks, err = db.GetTasks(TasksLimit)
 	}
 
 	if err != nil {

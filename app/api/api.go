@@ -5,6 +5,17 @@ import (
 	"net/http"
 )
 
+const (
+	TasksLimit = 50
+	DateFormat = "20060102"
+)
+
+// TaskResponse представляет ответ с ID задачи или ошибкой
+type TaskResponse struct {
+	ID    string `json:"id,omitempty"`
+	Error string `json:"error,omitempty"`
+}
+
 // writeJSON записывает JSON ответ
 func writeJSON(w http.ResponseWriter, data interface{}) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")

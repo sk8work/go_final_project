@@ -38,10 +38,10 @@ func AddTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Если дата не указана, используем сегодняшнюю
 	if req.Date == "" {
-		task.Date = now.Format(models.DateFormat)
+		task.Date = now.Format(DateFormat)
 	} else {
 		// Проверяем формат даты
-		date, err := time.Parse(models.DateFormat, req.Date)
+		date, err := time.Parse(DateFormat, req.Date)
 		if err != nil {
 			writeJSONError(w, "неверный формат даты", http.StatusBadRequest)
 			return
@@ -52,7 +52,7 @@ func AddTaskHandler(w http.ResponseWriter, r *http.Request) {
 		if !AfterNow(date, now) {
 			if req.Repeat == "" {
 				// Без правила повторения - используем сегодняшнюю дату
-				task.Date = now.Format(models.DateFormat)
+				task.Date = now.Format(DateFormat)
 			} else {
 				// С правилом повторения - вычисляем следующую дату
 				nextDate, err := NextDate(now, req.Date, req.Repeat)
