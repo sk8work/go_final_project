@@ -3,8 +3,9 @@ package db
 import (
 	"database/sql"
 	"fmt"
-	_ "modernc.org/sqlite"
 	"os"
+
+	_ "modernc.org/sqlite"
 )
 
 var DB *sql.DB
@@ -65,10 +66,6 @@ func Init(dbFile string) error {
 			fmt.Printf("Table created in existing database: %s\n", dbFile)
 		}
 	}
-
-	// Устанавливаем параметры соединения
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
 
 	DB = db
 	return nil
